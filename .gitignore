@@ -1,3 +1,7 @@
 */__pycache__
 *.pyc
 */tests.py
+.env
+IMPLEMENTATION_PLAN.md
+db.sqlite3
+.codex

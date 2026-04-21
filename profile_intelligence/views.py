@@ -1,6 +1,5 @@
 import re
 
-from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
@@ -8,7 +7,7 @@ from .models import Profile
 from .serializers import ProfileSerializer
 
 
-FILTER_PARAMS = {
+REAL_FILTER_PARAMS = {
     "gender",
     "age_group",
     "country_id",
@@ -17,30 +16,23 @@ FILTER_PARAMS = {
     "min_gender_probability",
     "min_country_probability",
 }
-CONTROL_PARAMS = {"page", "limit", "sort_by", "order"}
-PROFILE_PARAMS = FILTER_PARAMS | CONTROL_PARAMS
+DATA_CONTROL_PARAMS = {"page", "limit", "sort_by", "order"}
+PROFILE_PARAMS = REAL_FILTER_PARAMS | DATA_CONTROL_PARAMS
 SEARCH_PARAMS = {"q", "page", "limit", "sort_by", "order"}
 
 GENDERS = {"male", "female"}
 AGE_GROUPS = {"child", "teenager", "adult", "senior"}
-SORT_FIELDS = {"age", "created_at", "gender_probability"}
+DATA_SORT_FIELDS = {"age", "created_at", "gender_probability"}
 ORDERS = {"asc", "desc"}
 
+
 COUNTRY_ALIASES = {
-    "angola": "AO",
-    "benin": "BJ",
-    "bj": "BJ",
-    "ghana": "GH",
-    "kenya": "KE",
     "nigeria": "NG",
-    "ng": "NG",
-    "south africa": "ZA",
-    "za": "ZA",
 }
 
 
 class QueryParameterError(ValueError):
-    def __init__(self, http_status=status.HTTP_422_UNPROCESSABLE_ENTITY):
+    def __init__(self, http_status=422):
         self.http_status = http_status
 
 
@@ -51,7 +43,7 @@ def error_response(message, http_status):
     )
 
 
-def invalid_query(http_status=status.HTTP_422_UNPROCESSABLE_ENTITY):
+def invalid_query(http_status=422):
     return error_response("Invalid query parameters", http_status)
 
 
@@ -83,7 +75,7 @@ def parse_float(value):
 def reject_empty_values(params):
     for value in params.values():
         if value == "":
-            raise QueryParameterError(status.HTTP_400_BAD_REQUEST)
+            raise QueryParameterError(400)
 
 
 def validate_allowed_param_names(params, allowed_params):
@@ -97,10 +89,10 @@ def validate_allowed_params(params, allowed_params):
 
 
 def normalize_gender(value):
-    normalized = value.lower()
-    if normalized not in GENDERS:
+    normalized_gender = value.lower()
+    if normalized_gender not in GENDERS:
         raise QueryParameterError
-    return normalized
+    return normalized_gender
 
 
 def normalize_age_group(value):
@@ -129,7 +121,7 @@ def parse_sorting(params):
     sort_by = params.get("sort_by", "created_at")
     order = params.get("order", "desc")
 
-    if sort_by not in SORT_FIELDS or order not in ORDERS:
+    if sort_by not in DATA_SORT_FIELDS or order not in ORDERS:
         raise QueryParameterError
 
     prefix = "" if order == "asc" else "-"
@@ -276,14 +268,14 @@ def profile_search(request):
         validate_allowed_param_names(params, SEARCH_PARAMS)
         query = params.get("q")
         if query is None or not query.strip():
-            return invalid_query(status.HTTP_400_BAD_REQUEST)
+            return invalid_query(400)
         reject_empty_values(params)
 
         parsed_filters = parse_natural_language_query(query)
         if not parsed_filters:
             return error_response(
                 "Unable to interpret query",
-                status.HTTP_400_BAD_REQUEST,
+                400,
             )
 
         query_params = {**params, **parsed_filters}
